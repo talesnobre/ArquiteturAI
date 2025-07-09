@@ -3,7 +3,6 @@ import pandas as pd
 import joblib
 from sklearn.metrics import r2_score
 import plotly.express as px
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="Validador de Modelos", layout="wide")
 st.title("📊 Validador de Modelos com R² e Visualização Interativa")
