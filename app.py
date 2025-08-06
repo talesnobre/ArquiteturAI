@@ -7,16 +7,7 @@ import plotly.express as px
 st.set_page_config(page_title="Validador de Modelos", layout="wide")
 st.title("📊 Validador de Modelos com R² e Visualização Interativa")
 
-# === 1. Escolha do modelo ===
-modelo_opcao = st.selectbox("🔍 Escolha o modelo para validação:", 
-                            ("Random Forest", "Decision Tree"))
-
-modelo_path = {
-    "Random Forest": "best_random_forest_model.pkl",
-    "Decision Tree": "best_decision_tree_model.pkl"
-}[modelo_opcao]
-
-# === 2. Upload do CSV ===
+# === 1. Upload do CSV ===
 arquivo = st.file_uploader("📁 Faça upload do CSV para validação", type=["csv", "xls", "xlsx"])
 
 if arquivo is not None:
@@ -27,13 +18,25 @@ if arquivo is not None:
         st.write("📋 Pré-visualização dos dados:")
         st.dataframe(df_val.head())
 
-        # === 3. Escolha da variável alvo (target) ===
-        colunas = df_val.columns.tolist()
-        coluna_alvo = st.selectbox("🎯 Selecione a coluna alvo (target):", colunas)
+        # === 2. Escolha do modelo e target ===
+        modelo_opcao = st.selectbox("🔍 Escolha o tipo de modelo:", 
+                                    ("Random Forest", "Decision Tree"))
 
-        if coluna_alvo:
-            X_val = df_val.drop(columns=[coluna_alvo])
-            y_val = df_val[coluna_alvo]
+        target_opcao = st.selectbox("🎯 Escolha o target (coluna alvo):",
+                                    ("UDI ", "UDI_more", "UDI_less"))
+
+        # Montar caminho do modelo conforme escolhas
+        prefixo = "best_random_forest_model" if modelo_opcao == "Random Forest" else "best_decision_tree_model"
+        modelo_path = f"{prefixo}.pkl" if target_opcao == "UDI " else f"{prefixo}_{target_opcao}.pkl"
+
+        if target_opcao not in df_val.columns:
+            st.error(f"❌ A coluna '{target_opcao}' não foi encontrada no arquivo.")
+        else:
+            # Remover colunas de target que não estão sendo previstas
+            targets = ["UDI ", "UDI_more", "UDI_less"]
+            targets_para_remover = [col for col in targets if col != target_opcao]
+            X_val = df_val.drop(columns=targets_para_remover + [target_opcao])
+            y_val = df_val[target_opcao]
 
             try:
                 modelo = joblib.load(modelo_path)
@@ -46,19 +49,13 @@ if arquivo is not None:
                 st.subheader("📈 Resultado da Validação:")
                 st.metric("R² Score", f"{r2:.4f}")
 
-                # === Tabela comparativa ===
                 df_resultado = X_val.copy()
                 df_resultado["Real"] = y_val.values
                 df_resultado["Previsto"] = y_pred
 
                 st.subheader("📊 Comparativo Real vs Previsto")
                 st.dataframe(df_resultado)
-                
 
-                # fig = px.line(df_resultado, x='Index', y=['Real', 'Previsto'], color='variable', symbol='variable', title='Regressor', labels={ 'value': 'Valor','Index':'ID'})
-                # st.plotly_chart(fig, use_container_width=True)
-                
-                # === Gráfico com Plotly ===
                 st.subheader("📉 Gráfico de Dispersão (Plotly)")
                 fig = px.scatter(
                     df_resultado,
@@ -71,8 +68,8 @@ if arquivo is not None:
                 fig.update_layout(width=800, height=500)
                 st.plotly_chart(fig, use_container_width=True)
 
-                # === Download do comparativo ===
                 csv_resultado = df_resultado.to_csv(index=False).encode("utf-8")
                 st.download_button("📥 Baixar comparativo em CSV", csv_resultado, "resultado_comparativo.csv", "text/csv")
+
     except Exception as e:
         st.error(f"⚠️ Erro ao processar o arquivo: {e}")
